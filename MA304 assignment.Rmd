@@ -1,0 +1,447 @@
+---
+title: "Exploratory Data Analysis of Crime Records of Dallas (Texas), 2016."
+author: "Muhammad Lashan Ali Zahid"
+output:
+  html_document: default
+  word_document: default
+  pdf_document: default
+always_allow_html: yes
+---
+MA304 coursework
+
+email: mz21264@essex.ac.uk
+
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE, message = FALSE, warning=FALSE, error = FALSE, include = TRUE, out.width = "100%")
+```
+
+# Objective
+
+To conduct an Exploratory Data Analysis of crime data from Dallas (Texas) for the year 2016. We will explore the pattern of crimes committed and we will look into some specific variables of both the subject's and officer's data, mentioned below:
+
+- Analyzing the number of crimes on a monthly and weekly basis.
+
+- The ethnicity of the subject 
+
+- Gender of the subject
+
+- the subject's recorded description
+
+- Offense for the committed crime
+
+- Analysis on the officers and the number of successful arrests.
+
+- Locations of the reported crimes (Where in the city of Dallas more crimes were reported).
+
+# Data Exploration
+
+
+```{r, echo=TRUE}
+# necessary libraries
+library(tidyverse)
+library(ggthemes)
+library(plotly)
+library(psych)
+library(knitr)
+```
+
+```{r, echo=TRUE}
+# loading dataset
+library(readr)
+crime_data_raw <- read_csv("37-00049_UOF-P_2016_prepped.csv")
+crime_data <- crime_data_raw
+```
+## Data description and missing values
+
+### Sample of the data
+
+```{r, echo=TRUE}
+# glimpse of the dataset
+glimpse(crime_data)
+```
+
+```{r, echo=TRUE, include=TRUE}
+# dimension of the dataset
+dim(crime_data)
+```
+
+
+The dataset has 2383 rows and 47 columns. Rows are the entries of the crime recorded. Columns contains the details of the recorded crimes like date and time, officers details who dealt with the subject in question, subject's description, crime description, place of incident, the steps officers took to arrest the subject and many more.
+
+
+```{r}
+# droping 2nd column
+crime_data <- crime_data[-1,]
+```
+
+
+### Columns of the data and missing values 
+
+Data set contains the following columns and their corresponding missing values:-
+
+```{r, echo=TRUE, include=TRUE}
+# columns of the data set with number of missing values
+count_na <- function(x){sum(is.na(x))}
+apply(crime_data,2,count_na) %>% 
+  as.data.frame() %>%  
+  DT::datatable(colnames = c( "Columns Names", "Number of Missing Values"))
+
+```
+# Exploratory Data Analysis
+
+### Data transformation
+
+Lets proceed with our exploration with some visual aids of our crime data.
+
+```{r, echo=TRUE}
+# parsing "INCIDENT_DATE" to date format
+library(lubridate)
+
+crime_data <- crime_data %>%
+  mutate(INCIDENT_DATE = mdy(INCIDENT_DATE)) %>%
+  mutate(MONTH = month(INCIDENT_DATE, label =TRUE)) %>% 
+  mutate(DAY = day(INCIDENT_DATE)) %>% 
+  mutate(Week_Day = wday(INCIDENT_DATE, label = TRUE))
+  
+```
+
+## Number of crimes in each month of 2016.
+
+```{r, include=TRUE, echo=TRUE}
+# Monthly number of crime table
+crime_data %>%
+ count(MONTH) %>%
+  mutate(`Number of Crime` = n) %>%
+   mutate(Percent = round( (`Number of Crime`/sum(`Number of Crime`)), digits = 4 )*100) %>%
+  mutate(Percent= paste0(Percent," %")) %>% 
+  select(MONTH, `Number of Crime`, Percent)%>% 
+  DT::datatable(colnames = c("Month", "Number of Crimes", "Percentage"), 
+                options = list(pageLength = 12))
+```
+###  Average number of crime per month
+
+```{r, echo=TRUE, include=TRUE}
+# average number of crime
+
+crime_data %>%
+ count(MONTH) %>%
+  mutate(`Number of Crime` = n) %>%
+  mutate(Percent = round( (`Number of Crime`/sum(`Number of Crime`)), digits = 4 )*100) %>%
+  mutate(Percent= paste0(Percent," %")) %>% 
+  select(MONTH, `Number of Crime`, Percent) %>% 
+  dplyr::summarise(`Average crime per month`=round(mean(`Number of Crime`), digits=0),
+                   `Standard deviation of crime` = round(sd(`Number of Crime`), digits = 0)) %>% 
+  DT::datatable()
+```
+
+
+```{r, include=TRUE, echo=TRUE}
+# number of crime per month bar graph
+month_wise <-crime_data %>%
+ count(MONTH) %>%
+  mutate(`Number of Crime` = n) %>% 
+  ggplot() + aes(x = MONTH, weight = `Number of Crime`) + geom_bar(fill = "brown", width = 0.8) +
+  labs(x = "Month\n", y = "\nNumber of Crimes\n", title = "Number of crimes by Month (2016)") +
+  theme_grey() ->plt
+
+  ggplotly(plt,tooltip = c("MONTH", "Number of Crime"))
+```
+
+```{r, echo=TRUE, include=TRUE}
+# monthly number of crime
+month_wise <-crime_data %>%
+ count(MONTH) %>%
+  mutate(`Number of Crime` = n) %>% 
+  ggplot() + aes(x = MONTH, y = `Number of Crime`) + geom_point(color="brown") +
+  labs(x = "Month\n", y = "\nNumber of Crimes\n", title = "Number of crimes by Month (2016)") +
+  theme_grey() ->plt
+
+ggplotly(plt,tooltip = c("MONTH", "Number of Crime"))
+
+
+```
+The above scatter plot shows how the number of crimes increase in the start of the year hitting its highest in March and then drops March until july and then there is a slight rise for two months. In December the crime rate is the lowest with just 100 crimes.
+
+```{r, echo=TRUE, include=TRUE, out.width="100%"}
+# distribution of number of crime per month
+crime_data %>%
+ count(MONTH) %>% mutate(`Number of Crime` = n) %>% 
+  mutate(Percent = round( (`Number of Crime`/sum(`Number of Crime`)), digits = 4 )*100) %>% 
+  mutate(Percent= paste0(Percent," %")) %>% select(MONTH, `Number of Crime`, Percent) %>% 
+ggplot() + aes(x = `Number of Crime`) + geom_histogram(aes(y=..density..), position="identity", alpha=0.5,bins = 4, fill = "#497AD2", colour = "blue") +
+geom_density(alpha=0.2, fill = "#4411D2", colour = "#4411D2")+
+  labs(title = "Distribution of Number of Crimes per Month (year 2016)") +
+  theme_grey() ->plt
+
+ggplotly(plt)
+```
+
+
+- From the mean and standard deviation table we can see that on average 199 crimes were reported per month with a possible variation of 46.
+- Again from the histogram and density plot we can confirm that it is more likely that around 199 crimes were reported per month.
+- Least number of crime were reported in the month of December, 100 (i.e 4.2%) and most number of crime is reported in the month of March, 264 (i.e 11.08%).
+
+# Number of crimes on different week days
+
+```{r, include=TRUE, echo=TRUE}
+# Weekly number of crime table
+crime_data %>%
+ count(Week_Day) %>%
+  mutate(`Number of Crime` = n) %>% group_by(Week_Day) %>% 
+  mutate(`Average No. of Crime on This day` = round(sum(`Number of Crime`)/52, digits = 2)) %>%
+  ungroup(Week_Day) %>% mutate(Percent = round( (`Number of Crime`/sum(`Number of Crime`)), digits = 4 )*100) %>%
+  mutate(Percent= paste0(Percent,"%")) %>% select(Week_Day, `Number of Crime`,`Average No. of Crime on This day`, Percent) %>% 
+  DT::datatable(colnames = c("Week Day", "Number of Crime","Average No. of Crime on This day", "Percentage"),
+                rownames = FALSE)
+```
+```{r, echo=TRUE, include=TRUE}
+# Weekly number of crime table
+crime_data %>%
+ count(Week_Day) %>%
+  mutate(`Number of Crime` = n) %>%
+  mutate(Percent = round( (`Number of Crime`/sum(`Number of Crime`)), digits = 4 )*100) %>%
+  mutate(Percent= paste0(Percent," %")) %>% 
+  select(Week_Day, `Number of Crime`, Percent) %>% 
+  dplyr::summarise(`Average crime per week`=round(sum(`Number of Crime`)/52, digits=2),
+                   `Average crime per day` = round(sum(`Number of Crime`)/365, digits=2)) %>% 
+  DT::datatable(rownames = FALSE)
+```
+
+
+```{r, include=TRUE, echo=TRUE}
+# Weekly number of crime
+crime_data %>%
+ count(Week_Day) %>%
+  mutate(`Number of Crime` = n) %>% 
+  ggplot() +
+  aes(x = Week_Day, weight = `Number of Crime`) + geom_bar(fill = "brown", width = 0.8) +
+  labs(x = "Week Day",y = "Number of Crime",title = "Number of crime by Week Day"  ) +
+  theme_grey()->plt
+
+  ggplotly(plt,tooltip = c("Week_Day", "Number of Crime"))
+```
+
+# Note
+
+- On average 46 crimes were reported each week, and 7 crimes each day.
+- More specifically if we see the number of crimes on week day basis, more number of crimes happened on Sunday, i.e 428 (17.96 %) and Saturday, i.e 393 (16.49 %).
+- Also it is clear from the table that the average number of crime is highest on sunday.
+
+# Number of crimes on different days of a month
+
+```{r, echo=TRUE, include=TRUE}
+# daily number of crime table
+crime_data %>%
+ count(DAY) %>% mutate(`Number of Crime` = n) %>% mutate(Percent = round( (`Number of Crime`/sum(`Number of Crime`)), digits = 4 )*100) %>%
+  mutate(Percent= paste0(Percent," %")) %>% select(DAY, `Number of Crime`, Percent) %>% 
+  DT::datatable(colnames = c("Month Day", "Number of Crimes", "Percentage"), options = list(pageLength=31))
+```
+
+
+```{r, echo=TRUE, include=TRUE}
+# daily number of crime
+crime_data %>%
+ count(DAY) %>%
+  mutate(`Number of Crime` = n) %>%
+  ggplot() + aes(x = DAY, y = `Number of Crime`) + geom_line(colour="brown") + geom_point()+
+  labs(x = "Month Day",y = "Number of Crimes",title = "Number of crimes by Month Day") +
+  xlim(1,31)+
+  scale_x_continuous(n.breaks = 30)+
+  theme_grey() ->plt
+
+  ggplotly(plt,tooltip = c("DAY", "Number of Crime"))
+```
+
+Number of crimes does not seem to follow a pattern for different days in a month.
+
+# Ethnicity of the subject
+
+```{r, echo=TRUE, include=TRUE}
+# race wise number of crime table
+crime_data %>%
+ count(SUBJECT_RACE) %>%
+  mutate(SUBJECT_RACE = as.factor(SUBJECT_RACE)) %>% 
+  mutate(`Number of Crime` = as.numeric(n)) %>%
+  mutate(Percent = round( (`Number of Crime`/sum(`Number of Crime`)), digits = 4 )*100) %>%
+  mutate(Percent= paste0(Percent,"%")) %>% 
+  dplyr::arrange(desc(`Number of Crime`)) %>% 
+  select(SUBJECT_RACE, `Number of Crime`, Percent) %>% 
+  DT::datatable(colnames = c("Subject's Ethnicity", "Number of Crimes", "Percentage"))
+```
+
+
+```{r, include=TRUE, echo=TRUE}
+# pie chart of subject's ethnicity in percentage
+library(rAmCharts)
+ crime_data %>%
+ count(SUBJECT_RACE) %>%
+  mutate(`Number of Crime` = n) %>% mutate(Percent = round( (`Number of Crime`/sum(`Number of Crime`)), digits = 4 )*100) %>%
+  mutate(Percent= paste0(Percent," %")) %>% dplyr::arrange(desc(`Number of Crime`)) %>% select(SUBJECT_RACE, `Number of Crime`, Percent) %>%
+   
+  dplyr::select(label=SUBJECT_RACE, value = `Number of Crime`) %>% 
+   amPie(., inner_radius = 30, depth = 8, show_values = TRUE,legend = TRUE,export = TRUE,main = "Ethnicity Analysis using Pie Chart")
+```
+
+The above chart shows that largest ethnic group in the data is Black, with 1333 (55.94 %) reported crimes followed by Hispanic with 524 (21.99 %) and White with 470 (19.72 %) reported crimes. While American Indian reported the fewest number of crimes, 1 (0.04 %).
+
+# Analysis on Subject's gender
+
+```{r, echo=TRUE, include=TRUE}
+# Gender wise number of crime table
+crime_data %>%
+ count(SUBJECT_GENDER) %>%
+  mutate(`Number of Crime` = n) %>% mutate(Percent = round( (`Number of Crime`/sum(`Number of Crime`)), digits = 4 )*100) %>%
+  mutate(Percent= paste0(Percent,"%")) %>% dplyr::arrange(desc(`Number of Crime`)) %>% select(SUBJECT_GENDER, `Number of Crime`, Percent) %>% 
+  DT::datatable(colnames = c("Subject's Gender", "Number of crimes", "Percentage"))
+```
+
+
+```{r, include=TRUE, echo=TRUE}
+# Gender wise number of crime pie plot
+crime_data %>%
+ count(SUBJECT_GENDER) %>%
+  mutate(`Number of Crime` = n) %>% mutate(Percent = round( (`Number of Crime`/sum(`Number of Crime`)), digits = 4 )*100) %>%
+  mutate(Percent= paste0(Percent," %")) %>% dplyr::arrange(desc(`Number of Crime`)) %>% 
+  select(SUBJECT_GENDER, `Number of Crime`, Percent) %>%
+
+  dplyr::select(label=SUBJECT_GENDER, value = `Number of Crime`) %>% 
+   amPie(., inner_radius = 0, depth = 0, show_values = TRUE,legend = TRUE,export = TRUE,main = "Gender Analysis using Pie Chart",legendPosition = "right")
+```
+
+Most of the subjects were men.
+
+# Subject’s Description
+
+```{r, echo=TRUE, include=TRUE}
+# Description's analysis
+crime_data %>%
+ count(SUBJECT_DESCRIPTION) %>%
+  mutate(`Number of Crime` = n) %>% mutate(Percent = round( (`Number of Crime`/sum(`Number of Crime`)), digits = 4 )*100) %>%
+  mutate(Percent= paste0(Percent,"%")) %>% select(SUBJECT_DESCRIPTION, `Number of Crime`, Percent) %>%
+  dplyr::arrange(desc(`Number of Crime`)) %>% DT::datatable(colnames = c("Subject's Description", "Number of Crimes", "Percentage"), options = list(pageLength=15))
+```
+
+Most number of crimes are committed by subject having mental instability, Alcohol and some sort of drug. Mental stability leads the with 17.29% crimes followed by Alcohol at 16.03%.
+
+# Offense of the subject
+
+```{r, echo=TRUE, include=TRUE}
+# Offence of the subject
+crime_data %>%
+ count(SUBJECT_OFFENSE) %>%
+  mutate(SUBJECT_OFFENSE = as.factor(SUBJECT_OFFENSE)) %>% 
+  mutate(`Number of Crime` = as.numeric(n)) %>%
+  mutate(Percent = round( (`Number of Crime`/sum(`Number of Crime`)), digits = 4 )*100) %>%
+  mutate(Percent= paste0(Percent,"%")) %>% 
+  dplyr::arrange(desc(`Number of Crime`)) %>% 
+  select(SUBJECT_OFFENSE, `Number of Crime`, Percent) %>% 
+  DT::datatable(colnames = c("Subject's offence", "Number of Crimes", "Percentage"))
+```
+## Note
+As we can see that the list of offenses contains 551 entries. But the top three categories are: 
+
+- APOWW with 351 crimes recorded
+- No arrest with 305 crimes recorded
+- Public Intoxication with 181 crimes recorded
+
+# Reasons for the Incident
+
+```{r, include=TRUE, echo=TRUE}
+# reason for the Incidents
+crime_data %>%
+ count(INCIDENT_REASON) %>%
+  mutate(`Number of Crime` = n) %>% 
+  ggplot() +
+  aes(x = INCIDENT_REASON, weight = `Number of Crime`) + geom_bar(fill = "brown", width = 0.5) +
+  labs(x = "Incident Reason",y = "Number of Crime",title = "Bar graph of Reason for the Incident"  ) +
+  scale_x_discrete(guide = guide_axis(n.dodge = 2)) +
+
+  theme(axis.text.x = element_text(angle = 45, hjust = 1))->plt
+
+  ggplotly(plt,tooltip = c("INCIDENT_REASON", "Number of Crime"))
+```
+
+# Experiance in years of the officers
+
+## Average experience
+```{r}
+officer_avg_age <- round(mean(as.numeric(crime_data$OFFICER_YEARS_ON_FORCE, na.rm=TRUE)), digits = 2)
+```
+
+Average experience of the officer on duty was `r officer_avg_age` years. Lets visualize it using histogram and density plot to get a more specific idea
+
+```{r, echo=TRUE, include=TRUE}
+crime_data %>% 
+  mutate(`Officer's experience in years` = as.numeric(OFFICER_YEARS_ON_FORCE)) %>% 
+  ggplot() +aes(x = `Officer's experience in years`) +geom_histogram(aes(y=..density..), 
+  position="identity", alpha=0.5,bins = 13, fill = "#497AD2", colour = "blue") +
+geom_density(alpha=0.2, fill = "#4411D2", colour = "#4411D2")+labs(title = "Distribution of Officer's experience in years") +
+  scale_x_continuous(n.breaks=30)+ xlim(0, 40) +  theme_grey() ->plt
+
+ggplotly(plt)
+```
+We can see more number of officers are having a experience of less than 8 years.
+
+# Number of Arrests recorded
+
+```{r}
+crime_data %>%
+ count(SUBJECT_WAS_ARRESTED) %>%
+  mutate(Number = n) %>%
+  mutate(Percent = round( (Number/sum(Number)), digits = 4 )*100) %>%
+  mutate(Percent= paste0(Percent,"%")) %>% 
+  dplyr::arrange(desc(Number)) %>% 
+  select(SUBJECT_WAS_ARRESTED, Number, Percent) %>%
+  DT::datatable(colnames = c("Arrested?", "Number", "Percentage"))
+```
+- In 85.94% of crimes the subjects were arrested. 
+- In rest of the 14.06% subjects were arrested.  
+
+```{r}
+crime_data %>%
+ count(SUBJECT_WAS_ARRESTED) %>%
+  mutate(Number = n) %>% mutate(Percent = round( (Number/sum(Number)), digits = 4 )*100) %>% mutate(Percent= paste0(Percent," %")) %>% 
+  dplyr::arrange(desc(Number)) %>% select(SUBJECT_WAS_ARRESTED, Number, Percent) %>%
+
+  dplyr::select(label=SUBJECT_WAS_ARRESTED, value = Number) %>% 
+   amPie(., inner_radius = 15, depth = 5, show_values = TRUE,legend = TRUE,export = TRUE,main = "Pie chart for Sucessfull Arrests",legendPosition = "right")
+```
+
+
+# Crime Location Analysis
+
+```{r, echo=TRUE, include=TRUE}
+# Division wise number of crime table
+crime_data %>%
+ count(DIVISION) %>%
+  mutate(`Number of Crime` = n) %>% mutate(Percent = round( (`Number of Crime`/sum(`Number of Crime`)), digits = 4 )*100) %>%
+  mutate(Percent= paste0(Percent,"%")) %>% dplyr::arrange(desc(`Number of Crime`)) %>% select(DIVISION, `Number of Crime`, Percent) %>% 
+  DT::datatable(colnames = c("Division", "Number of Crimes", "Percentage"))
+```
+
+```{r, include=TRUE, echo=TRUE, , out.width="100%"}
+# Division wise number of crime pie plot
+crime_data %>%
+ count(DIVISION) %>%
+  mutate(`Number of Crime` = n) %>% mutate(Percent = round( (`Number of Crime`/sum(`Number of Crime`)), digits = 4 )*100) %>%
+  mutate(Percent= paste0(Percent," %")) %>% dplyr::arrange(desc(`Number of Crime`)) %>% select(DIVISION, `Number of Crime`, Percent) %>%
+
+  dplyr::select(label=DIVISION, value = `Number of Crime`) %>% 
+   amPie(., inner_radius = 30, depth = 5, show_values = TRUE,legend = TRUE,export = TRUE,main = "Crimes by Division in Dallas City")
+```
+
+There are significantly more crimes reported in the central division of Dallas city. 
+
+# Lets plot it on the map!
+
+```{r, include=TRUE, echo=TRUE, out.width="100%"}
+library(leaflet)
+
+# create leaflet map
+crime_data %>% 
+  mutate(LOCATION_LONGITUDE= as.double(LOCATION_LONGITUDE)) %>% mutate(LOCATION_LATITUDE = as.double(LOCATION_LATITUDE)) %>% 
+  leaflet(.) %>% addTiles() %>%
+  addCircleMarkers(lng = ~LOCATION_LONGITUDE, lat = ~LOCATION_LATITUDE, radius=2, fillOpacity = 0.001)
+```
+
